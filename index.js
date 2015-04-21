@@ -1,9 +1,57 @@
 var fs = require('fs')
 var path = require('path')
 
+
+function copyFile(source, target, options, cb) {
+  var cbCalled = false;
+
+  var rd = fs.createReadStream(source);
+  rd.on("error", function(err) {
+    done(err);
+  });
+  var wr = fs.createWriteStream(target);
+  wr.on("error", function(err) {
+    done(err);
+  });
+  wr.on("close", function(ex) {
+    done();
+  });
+  rd.pipe(wr);
+
+  function done(err) {
+    if (!cbCalled) {
+      cb(err);
+      cbCalled = true;
+    }
+  }
+}
+
 module.exports = copyDereference
-function copyDereference () {
-  throw new Error("This function does not exist. Use require('copy-dereference').sync")
+function copyDereference (src, dest, callback) {
+  fs.stat(src, function(err, srcStats) {
+    if (err != null) return callback(err);
+
+    if (srcStats.isDirectory()) {
+      // TODO
+      throw new Error("copyDereference async not implemented for dirs yet")
+
+    } else if (srcStats.isFile()) {
+      copyFile(src, dest, { flag: 'wx', mode: srcStats.mode }, function(err) {
+        if (err != null) return callback(err);
+
+        fs.utimes(dest, srcStats.atime, srcStats.mtime, function(err) {
+          if (err != null) {
+            callback(err);
+          } else {
+            callback();
+          }
+        });
+      });
+    } else {
+      callback(new Error('Unexpected file type for ' + src));
+    }
+
+  });
 }
 
 module.exports.sync = copyDereferenceSync
